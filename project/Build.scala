@@ -8,7 +8,8 @@ object BuildSettings {
     scalacOptions ++= Seq(),
     scalaVersion := "2.10.2",
     resolvers += Resolver.sonatypeRepo("snapshots"),
-    addCompilerPlugin("org.scala-lang.plugins" % "macro-paradise" % "2.0.0-SNAPSHOT" cross CrossVersion.full)
+    addCompilerPlugin("org.scala-lang.plugins" % "macro-paradise" % "2.0.0-SNAPSHOT" cross CrossVersion.full),
+    initialCommands in console := """import liftableMacro._, scala.reflect.api.Liftable, scala.reflect.runtime.{universe => ru}, ru._"""
   )
 }
 

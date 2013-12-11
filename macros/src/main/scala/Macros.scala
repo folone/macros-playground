@@ -1,22 +1,37 @@
 import scala.reflect.macros.Context
 import scala.language.experimental.macros
-import scala.annotation.StaticAnnotation
+import scala.reflect.api.Liftable
 
-object helloMacro {
-  def impl(c: Context)(annottees: c.Expr[Any]*): c.Expr[Any] = {
+
+object liftableMacro {
+  implicit def liftableCaseClass[T]: Liftable[T] = macro impl_liftable[T]
+  def impl_liftable[T: c.WeakTypeTag](c: Context): c.Expr[Liftable[T]] = {
     import c.universe._
-    import Flag._
-    val result = {
-      annottees.map(_.tree).toList match {
-        case ModuleDef(mods, name, Template(parents, self, body)) :: Nil =>
-          val helloMethod = DefDef(NoMods, newTermName("hello"), List(), List(List()), TypeTree(), Literal(Constant("hello")))
-          ModuleDef(mods, name, Template(parents, self, body :+ helloMethod))
+    val T = weakTypeOf[T]
+    val symbol = T.typeSymbol
+    if (!symbol.asClass.isCaseClass)
+      c.abort(c.enclosingPosition, s"$symbol is not a case class")
+    else {
+      val fields = T.declarations.collectFirst {
+        case m: MethodSymbol if m.isPrimaryConstructor ⇒ m
+      }.get.paramss.head
+      val spliced = fields.map { field ⇒
+        val name = field.name
+        val typeSign = T.declaration(name).typeSignature
+        q"implicitly[Liftable[$typeSign]].apply(universe, value.$name)"
+      }
+      c.Expr[Liftable[T]] { q"""
+        import scala.reflect.api.Universe
+        new Liftable[$T] {
+          def apply(universe: Universe, value: $T): universe.Tree = {
+            import universe._
+            Apply(Select(Ident(newTermName(${symbol.fullName})),
+                         newTermName("apply")), List(..$spliced))
+          }
+        }
+        """
       }
     }
-    c.Expr[Any](result)
   }
-}
 
-class hello extends StaticAnnotation {
-  def macroTransform(annottees: Any*) = macro helloMacro.impl
 }
