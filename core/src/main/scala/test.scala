@@ -8,6 +8,9 @@ case class Ok(s: String, i: Int)
 case class Test(d: Double, s: String, ok: Ok)
 case class `Ok.Test`(d: Double)
 
+case class A(b: B)
+case class B(a: A)
+
 object Test {
   import liftableMacro._
 
@@ -20,5 +23,6 @@ object Test {
     println(showRaw(q"""$s"""))
     println(showRaw(q"""$tst"""))
     println(showRaw(q"""$dot"""))
+    // liftableMacro.liftableCaseClass[A] // Should not compile because of the recursivity
   }
 }
