@@ -32,4 +32,16 @@ object Test {
     liftableMacro.liftableCaseClass[some.random.pkg.Pkg]
     println(showRaw(q"""$pkg"""))
   }
+
+  def eval = {
+    import scala.reflect.runtime._
+    val cm = universe.runtimeMirror(getClass.getClassLoader)
+    import scala.tools.reflect.ToolBox
+    val tb = cm.mkToolBox()
+
+    tb.eval(q"$s")
+    tb.eval(q"$tst")
+    //tb.eval(q"$dot")
+    //tb.eval(q"$pkg")
+  }
 }
