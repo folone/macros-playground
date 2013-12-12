@@ -11,12 +11,17 @@ case class `Ok.Test`(d: Double)
 case class A(b: B)
 case class B(a: A)
 
+package some.random.pkg {
+  case class Pkg(tst: String)
+}
+
 object Test {
   import liftableMacro._
 
   val s = Ok("s", 1)
   val tst = Test(1.0, "test", s)
   val dot = `Ok.Test`(1.0)
+  val pkg = some.random.pkg.Pkg("test")
 
   def ok = {
     implicit val ev = liftableMacro.liftableCaseClass[Ok]
@@ -24,5 +29,7 @@ object Test {
     println(showRaw(q"""$tst"""))
     println(showRaw(q"""$dot"""))
     // liftableMacro.liftableCaseClass[A] // Should not compile because of the recursivity
+    liftableMacro.liftableCaseClass[some.random.pkg.Pkg]
+    println(showRaw(q"""$pkg"""))
   }
 }
