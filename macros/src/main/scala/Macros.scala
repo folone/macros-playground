@@ -42,25 +42,12 @@ object liftableMacro {
       q"implicitly[Liftable[$typeSign]].apply(universe, value.$name)"
     }
     val companion = symbol.companionSymbol
-    val name = companion.name.toString
-    val fullName = companion.fullName
-    val packages = fullName.substring(0, fullName.lastIndexOf(name)).split("\\.").toList
-    val path = (packages :+ name).filterNot(_.isEmpty)
-    val astParts = path match {
-      case Nil       ⇒ Nil
-      case x :: tail ⇒ "Ident($)" :: tail.map(_ ⇒ """newTermName("$")""")
-    }
-    val ast = astParts.reduceLeft((l, r) ⇒ s"Select($l, $r)")
-    val brokenUpAst = ast.split("\\$")
-    //val res = StringContext(brokenUpAst:_*).q(path:_*)
-    val res = StringContext(brokenUpAst:_*).s(path:_*)
-    //println(res)
     c.Expr[Liftable[T]] { q"""
         import scala.reflect.api.Universe
         new Liftable[$T] {
           def apply(universe: Universe, value: $T): universe.Tree = {
             import universe._
-            Apply(Select($res, newTermName("apply")), List(..$spliced))
+            Apply(reify { $companion.apply _ }.tree.symbol, ..$spliced)
           }
         }
         """
