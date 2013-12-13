@@ -5,8 +5,8 @@ object BuildSettings {
   val buildSettings = Defaults.defaultSettings ++ Seq(
     organization := "org.scalamacros",
     version := "1.0.0",
-    scalacOptions ++= Seq(),
     scalaVersion := "2.11.0-SNAPSHOT",
+    initialCommands in console := """import liftableMacro._, scala.reflect.api.Liftable, scala.reflect.runtime.{universe => ru}, ru._""",
     scalaOrganization := "org.scala-lang.macro-paradise",
     resolvers += Resolver.sonatypeRepo("snapshots")
   )

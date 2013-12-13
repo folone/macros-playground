@@ -41,17 +41,19 @@ object liftableMacro {
     val spliced = params.map { case (name, typeSign) ⇒
       q"implicitly[Liftable[$typeSign]].apply(universe, value.$name)"
     }
-    c.Expr[Liftable[T]] { q"""
+    val string = "somestring"
+    //println(showRaw(q"$string"))
+    c.Expr[Liftable[T]](q"""
         import scala.reflect.api.Universe
         new Liftable[$T] {
           def apply(universe: Universe, value: $T): universe.Tree = {
             import universe._
-            Apply(Select(Ident(newTermName(`${symbol.fullName}`)),
+            Apply(Select(New(Ident(TermName("pkg.ok.Ok"))),
                          newTermName("apply")), List(..$spliced))
+
           }
         }
-        """
-    }
+    """)
   }
 
 }
