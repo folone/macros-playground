@@ -5,9 +5,8 @@ object BuildSettings {
   val buildSettings = Defaults.defaultSettings ++ Seq(
     organization := "org.scalamacros",
     version := "1.0.0",
-    scalaVersion := "2.11.0-SNAPSHOT",
+    scalaVersion := "2.11.0-M7",
     initialCommands in console := """import liftableMacro._, scala.reflect.api.Liftable, scala.reflect.runtime.{universe => ru}, ru._""",
-    scalaOrganization := "org.scala-lang.macro-paradise",
     resolvers += Resolver.sonatypeRepo("snapshots")
   )
 }
@@ -18,14 +17,18 @@ object MyBuild extends Build {
   lazy val root: Project = Project(
     "root",
     file("."),
-    settings = buildSettings
+    settings = buildSettings ++ Seq(
+      run <<= run in Compile in core,
+      test <<= test in Test in core,
+      console <<= console in Compile in core
+    )
   ) aggregate(macros, core)
 
   lazy val macros: Project = Project(
     "macros",
     file("macros"),
     settings = buildSettings ++ Seq(
-      libraryDependencies <+= (scalaVersion)("org.scala-lang.macro-paradise" % "scala-reflect" % _))
+      libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-reflect" % _))
   )
 
   lazy val core: Project = Project(
