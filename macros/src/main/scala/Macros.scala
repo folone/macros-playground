@@ -1,11 +1,11 @@
 import scala.reflect.macros.Context
 import scala.language.experimental.macros
-import scala.reflect.api.Liftable
+import scala.reflect.runtime.universe.Liftable
 
 
 object liftableMacro {
   implicit def liftableCaseClass[T]: Liftable[T] = macro impl_liftable[T]
-  def impl_liftable[T: c.WeakTypeTag](c: Context): c.Expr[Liftable[T]] = {
+  def impl_liftable[T: c.WeakTypeTag](c: Context): c.Tree = {
     import c.universe._
     val T = weakTypeOf[T]
     val symbol = T.typeSymbol
@@ -39,20 +39,17 @@ object liftableMacro {
     if(checkRecursivity(T, params))
       c.abort(c.enclosingPosition, s"We've detected that $symbol is defined recursively.")
     val spliced = params.map { case (name, typeSign) ⇒
-      q"implicitly[Liftable[$typeSign]].apply(universe, value.$name)"
+      q"implicitly[Liftable[$typeSign]].apply(value.$name)"
     }
 
-    c.Expr[Liftable[T]] { q"""
-      import scala.reflect.api.Universe
+    q"""
+      import scala.reflect.runtime.universe._
       new Liftable[$T] {
-        def apply(universe: Universe, value: $T): universe.Tree = {
-          import universe._
+        def apply(value: $T): Tree = {
           Apply(Select(New(Ident(TermName(`${symbol.fullName}`))),
                        newTermName("apply")), List(..$spliced))
         }
       }
     """
-    }
   }
-
 }

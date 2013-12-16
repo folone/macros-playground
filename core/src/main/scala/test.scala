@@ -1,5 +1,4 @@
 import scala.language.experimental.macros
-import scala.reflect.api.Liftable
 import scala.reflect.runtime.{universe ⇒ u}
 import u._
 
