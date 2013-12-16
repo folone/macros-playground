@@ -47,7 +47,7 @@ object liftableMacro {
       new Liftable[$T] {
         def apply(universe: Universe, value: $T): universe.Tree = {
           import universe._
-          Apply(Select(New(Ident(TermName(${symbol.fullName}))),
+          Apply(Select(New(Ident(TermName(`${symbol.fullName}`))),
                        newTermName("apply")), List(..$spliced))
         }
       }
