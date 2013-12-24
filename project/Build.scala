@@ -6,8 +6,7 @@ object BuildSettings {
     organization := "org.scalamacros",
     version := "1.0.0",
     scalaVersion := "2.11.0-SNAPSHOT",
-    scalacOptions := Seq("-Xprint:typer"),
-    initialCommands in console := """import liftableMacro._, scala.reflect.api.Liftable, scala.reflect.runtime.{universe => ru}, ru._""",
+    initialCommands in console := """import liftableMacro._, scala.reflect.runtime.universe.Liftable, scala.reflect.runtime.{universe => ru}, ru._""",
     resolvers += Resolver.sonatypeRepo("snapshots"),
     resolvers += Resolver.sonatypeRepo("releases")
   )

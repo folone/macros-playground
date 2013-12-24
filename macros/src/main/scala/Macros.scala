@@ -1,11 +1,11 @@
-import scala.reflect.macros.Context
+import scala.reflect.macros.WhiteboxContext
 import scala.language.experimental.macros
 import scala.reflect.runtime.universe.Liftable
 
 
 object liftableMacro {
   implicit def liftableCaseClass[T]: Liftable[T] = macro impl_liftable[T]
-  def impl_liftable[T: c.WeakTypeTag](c: Context): c.Tree = {
+  def impl_liftable[T: c.WeakTypeTag](c: WhiteboxContext): c.Tree = {
     import c.universe._
     val T = weakTypeOf[T]
     val symbol = T.typeSymbol
@@ -18,38 +18,26 @@ object liftableMacro {
       val typeSign = tpe.declaration(name).typeSignature
       name → typeSign
     }
-    def checkRecursivity(root: Type, flds: List[(Name, Type)]): Boolean = {
-      lazy val isAllPrimitive = flds.map { case(name, tpe) ⇒
-        val sym = tpe.typeSymbol
-        sym.isClass && sym.asClass.isCaseClass
-      }.forall(x ⇒ !x)
-      lazy val containsBaseType = flds.map { case(name, tpe) ⇒
-        tpe.exists(t ⇒ t =:= root) || root.exists(t ⇒ t =:= tpe) || tpe =:= root
-      }.exists(identity)
-      if(!isAllPrimitive && !containsBaseType) {
-        checkRecursivity(root, flds.flatMap { case(name, tpe) ⇒
-          val res = fields(tpe)
-          if (res.isEmpty) List((name, tpe))
-          else res
-        })
-      }
-      else !isAllPrimitive || containsBaseType
+    val constructor = q"""Select(select(${symbol.fullName}), TermName("apply"))"""
+    val arguments = fields(T).map { case (name, typeSign) ⇒
+      q"""
+        val v : $typeSign = value.$name
+        q"$$v"
+      """
     }
-    val params = fields(T)
-    if(checkRecursivity(T, params))
-      c.abort(c.enclosingPosition, s"We've detected that $symbol is defined recursively.")
-    val spliced = params.map { case (name, typeSign) ⇒
-      q"implicitly[Liftable[$typeSign]].apply(value.$name)"
-    }
-
+    val reflect = q"Apply($constructor, List(..$arguments))"
+    val implicitName = TermName(symbol.name.encoded ++ "Liftable")
     q"""
-      import scala.reflect.runtime.universe._
-      new Liftable[$T] {
-        def apply(value: $T): Tree = {
-          Apply(Select(New(Ident(TermName(`${symbol.fullName}`))),
-                       newTermName("apply")), List(..$spliced))
+      implicit object $implicitName extends Liftable[$T] {
+        private def select(fullName: String) = {
+          val head :: tail = fullName.split("\\.").toList
+          tail.foldLeft[Tree](Ident(TermName(head))){ (tree, name) ⇒
+            Select(tree, TermName(name))
+          }
         }
+        def apply(value: $T): Tree = $reflect
       }
+      $implicitName
     """
   }
 }
