@@ -18,7 +18,13 @@ object liftableMacro {
       val typeSign = tpe.declaration(name).typeSignature
       name → typeSign
     }
-    val constructor = q"""Select(select(${symbol.fullName}), TermName("apply"))"""
+    def select(fullName: String) = {
+      val head :: tail = fullName.split("\\.").toList
+      tail.foldLeft[Tree](Ident(TermName(head))){ (tree, name) ⇒
+        Select(tree, TermName(name))
+      }
+    }
+    val constructor = q"""reify(${select(symbol.fullName)}).tree"""
     val arguments = fields(T).map { case (name, typeSign) ⇒
       q"""
         val v : $typeSign = value.$name
@@ -29,12 +35,6 @@ object liftableMacro {
     val implicitName = TermName(symbol.name.encoded ++ "Liftable")
     q"""
       implicit object $implicitName extends Liftable[$T] {
-        private def select(fullName: String) = {
-          val head :: tail = fullName.split("\\.").toList
-          tail.foldLeft[Tree](Ident(TermName(head))){ (tree, name) ⇒
-            Select(tree, TermName(name))
-          }
-        }
         def apply(value: $T): Tree = $reflect
       }
       $implicitName
