@@ -24,20 +24,58 @@ object liftableMacro {
         Select(tree, TermName(name))
       }
     }
-    val constructor = q"""reify(${select(symbol.fullName)}).tree"""
+    val constructor = Select(Apply(
+                               Ident(TermName("reify")),
+                               List(select(symbol.fullName))),
+                        TermName("tree")) // q"reify(${select(symbol.fullName)}).tree"
     val arguments = fields(T).map { case (name, typeSign) ⇒
-      q"""
+      // Implementing the following
+      // q"implicitly[Liftable[$typeSign]].apply(value.$name)"
+      Apply(Select(
+              TypeApply(Ident(TermName("implicitly")),
+                        List(AppliedTypeTree(Ident(TypeName("Liftable")),
+                             List(TypeTree(typeSign))))),
+              TermName("apply")),
+           List(Select(Ident(TermName("value")), name)))
+      // Another way to do this is
+      /*q"""
         val v : $typeSign = value.$name
         q"$$v"
-      """
+       """*/
     }
-    val reflect = q"Apply($constructor, List(..$arguments))"
+    val reflect = Apply(Ident(TermName("Apply")),
+                        List(constructor,
+                          Apply(Ident(TermName("List")),
+                        arguments))) // q"Apply($constructor, List(..$arguments))"
     val implicitName = TermName(symbol.name.encoded ++ "Liftable")
-    q"""
+    // Implements the following
+    /*q"""
       implicit object $implicitName extends Liftable[$T] {
         def apply(value: $T): Tree = $reflect
       }
       $implicitName
-    """
+    """*/
+    import Flag._
+    Block(List(ModuleDef(Modifiers(IMPLICIT),
+                implicitName,
+                Template(
+                  List(AppliedTypeTree(Ident(TypeName("Liftable")),
+                       List(TypeTree(T)))),
+                  noSelfType,
+                  List(DefDef(Modifiers(),
+                        nme.CONSTRUCTOR,
+                        List(), List(List()),
+                        TypeTree(),
+                        Block(
+                          List(pendingSuperCall),
+                          Literal(Constant(())))),
+                        DefDef(Modifiers(),
+                               TermName("apply"),
+                               List(),
+                               List(List(ValDef(Modifiers(PARAM),
+                                         TermName("value"), TypeTree(T), EmptyTree))),
+                               Ident(TypeName("Tree")), reflect))))),
+          Ident(implicitName))
   }
+
 }
