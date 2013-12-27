@@ -1,3 +1,3 @@
-### An example SBT project which uses [macro paradise](http://docs.scala-lang.org/overviews/macros/paradise.html)
+### Experiments with macros using [macro paradise](http://docs.scala-lang.org/overviews/macros/paradise.html)
 
-To verify that everything works fine, do `sbt run`.
+Trying to generate instances of `Liftable` for arbitrary case-classes, to use them in quasiquotes.
