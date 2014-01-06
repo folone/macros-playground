@@ -18,26 +18,39 @@ object liftableMacro {
       val typeSign = tpe.declaration(name).typeSignature
       name → typeSign
     }
-    def select(fullName: String) = {
-      val head :: tail = fullName.split("\\.").toList
-      tail.foldLeft[Tree](Ident(TermName(head))){ (tree, name) ⇒
-        Select(tree, TermName(name))
+    def select(symbol: Symbol) = {
+      def chainSymbol(symbol: Symbol, accum: List[Name]): List[Name] = {
+        val owner = symbol.owner
+        if(owner.name.decoded == "<none>" || owner.name.decoded == "<empty>")
+          accum
+        else if(owner.name.decoded == "<root>")
+          TermName("_root_") :: accum
+        else
+          chainSymbol(owner, owner.name.toTermName :: accum)
+      }
+      val head :: tail = chainSymbol(symbol, List(symbol.companionSymbol.name))
+      tail.foldLeft[Tree](Ident(head)) { (tree, name) ⇒
+        Select(tree, name)
       }
     }
     val constructor = Select(Apply(
                                Ident(TermName("reify")),
-                               List(select(symbol.fullName))),
-                        TermName("tree")) // q"reify(${select(symbol.fullName)}).tree"
+                               List(select(symbol))),
+                        TermName("tree")) // q"reify(${select(symbol)}).tree"
     val arguments = fields(T).map { case (name, typeSign) ⇒
-      // Implementing the following
+      // Tree produced by the following quasiquote:
       // q"implicitly[Liftable[$typeSign]].apply(value.$name)"
       Apply(Select(
-              TypeApply(Ident(TermName("implicitly")),
-                        List(AppliedTypeTree(Ident(TypeName("Liftable")),
+              TypeApply(Select(Select(Select(Ident(TermName("_root_")),
+                                                   TermName("scala")),
+                                                   TermName("Predef")),
+                                                   TermName("implicitly")),
+                        List(AppliedTypeTree(Select(Ident(TermName("u")),
+                                                          TypeName("Liftable")),
                              List(TypeTree(typeSign))))),
               TermName("apply")),
            List(Select(Ident(TermName("value")), name)))
-      // Another way to do this is
+      // Another way to do this would be:
       /*q"""
         val v : $typeSign = value.$name
         q"$$v"
@@ -48,7 +61,7 @@ object liftableMacro {
                           Apply(Ident(TermName("List")),
                         arguments))) // q"Apply($constructor, List(..$arguments))"
     val implicitName = TermName(symbol.name.encoded ++ "Liftable")
-    // Implements the following
+    // Tree produced by the following quasiquote:
     /*q"""
       implicit object $implicitName extends Liftable[$T] {
         def apply(value: $T): Tree = $reflect
@@ -59,7 +72,8 @@ object liftableMacro {
     Block(List(ModuleDef(Modifiers(IMPLICIT),
                 implicitName,
                 Template(
-                  List(AppliedTypeTree(Ident(TypeName("Liftable")),
+                  List(AppliedTypeTree(Select(Ident(TermName("u")),
+                                                    TypeName("Liftable")),
                        List(TypeTree(T)))),
                   noSelfType,
                   List(DefDef(Modifiers(),
@@ -74,7 +88,8 @@ object liftableMacro {
                                List(),
                                List(List(ValDef(Modifiers(PARAM),
                                          TermName("value"), TypeTree(T), EmptyTree))),
-                               Ident(TypeName("Tree")), reflect))))),
+                               Select(Ident(TermName("u")),
+                                            TypeName("Tree")), reflect))))),
           Ident(implicitName))
   }
 
