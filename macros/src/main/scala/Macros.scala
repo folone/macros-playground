@@ -11,6 +11,8 @@ object liftableMacro {
     val symbol = T.typeSymbol
     if (!symbol.asClass.isCaseClass)
       c.abort(c.enclosingPosition, s"$symbol is not a case class")
+    if (!symbol.isStatic)
+      c.abort(c.enclosingPosition, s"$symbol is not static")
     def fields(tpe: Type) = tpe.declarations.collectFirst {
       case m: MethodSymbol if m.isPrimaryConstructor ⇒ m
     }.get.paramss.head.map { field ⇒
@@ -18,24 +20,10 @@ object liftableMacro {
       val typeSign = tpe.declaration(name).typeSignature
       name → typeSign
     }
-    def select(symbol: Symbol) = {
-      def chainSymbol(symbol: Symbol, accum: List[Name]): List[Name] = {
-        val owner = symbol.owner
-        if(owner.name.decoded == "<none>" || owner.name.decoded == "<empty>")
-          accum
-        else if(owner.name.decoded == "<root>")
-          TermName("_root_") :: accum
-        else
-          chainSymbol(owner, owner.name.toTermName :: accum)
-      }
-      val head :: tail = chainSymbol(symbol, List(symbol.companionSymbol.name))
-      tail.foldLeft[Tree](Ident(head)) { (tree, name) ⇒
-        Select(tree, name)
-      }
-    }
+    def select(symbol: Symbol) = q"$symbol"
     val constructor = Select(Apply(
                                Ident(TermName("reify")),
-                               List(select(symbol))),
+                               List(select(symbol.companionSymbol))),
                         TermName("tree")) // q"reify(${select(symbol)}).tree"
     val arguments = fields(T).map { case (name, typeSign) ⇒
       // Tree produced by the following quasiquote:
